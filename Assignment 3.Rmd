@@ -1,0 +1,53 @@
+---
+title: "Assignment 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# load packages
+ library(tidyverse)
+ library(rvest)
+```
+
+```{r}
+
+### Har samarbeidet med Fredrik Sverre og Andreas Reiten, slik at vår kode vil nok være ganske lik. 
+
+ # Leser URL
+ datacamp <- read_html("https://www.datacamp.com/courses/tech:r")
+ datacamp2 <- read_html("https://www.datacamp.com/courses/tech:python")
+ 
+ ## Velger alle kursene med "h4" fra URl´en over
+ df1 <- datacamp %>% 
+   html_nodes("h4") %>%
+   html_text()
+ 
+ 
+ ## Gjør det samme som over
+ df2 <- datacamp2 %>% html_nodes("h4") %>% html_text()
+ 
+ ## Cbinder for og få de om fra value til datasett
+ 
+ df1<-cbind(df1)
+ df2<-cbind(df2)
+ 
+ #Lager ekstra kolonne i datasettene og binder de sammen med cbind
+ 
+ Language <- ("R")
+ df1 <- cbind(df1,Language)
+ 
+ Language2 <- ("Python")
+ df2 <- cbind(df2,Language2)
+ 
+ #Gir kolonnene nytt navn
+ colnames(df1) <- c ("Tech","Language")
+ colnames(df2) <- c ("Tech","Language")
+ 
+ # Gjør dataen Long med rbind
+ df_all<- rbind(df1,df2)
+ 
+ knitr::kable(df_all)
+```
+
