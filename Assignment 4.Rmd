@@ -1,0 +1,33 @@
+---
+title: "Assignment 4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(rvest)
+```
+
+```{r}
+
+url <- "http://timeplan.uit.no/emne_timeplan.php?sem=20h&module%5B%5D=BED-2056-1&View=list"
+scraped <- Sys.time()
+webpage <- read_html(url)
+
+#Henter ut alt fra nettsiden
+df1<- html_table(html_nodes(webpage, "div table"))
+
+# Gjør om fra list til dataframe
+df <- data.frame(matrix(unlist(df1), nrow=14, byrow=T))
+
+# Velger variabler i datasettet som jeg ønsker
+df3 <- df[c(2,4,10,12)]
+
+# Gir nytt navn til kolonnene
+colnames(df3) <- c ("Dato","Tidspunkt","Sted","Lærer")
+
+knitr::kable(df3)
+```
+
