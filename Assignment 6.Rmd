@@ -1,0 +1,97 @@
+---
+title: "Assignment 6"
+author: "Heggelund"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+## Har sammarbeidet en del med Fredrik, Sofie og Herman. Slik at noe av koden vår vil være lik.
+
+library(tidyverse)
+library(rvest)
+library(lubridate)
+library(purrr)
+library(ggplot2)
+# Etterhvert som det kommer flere observasjoner i 2020 vil dette bli oppdatert om du kjører koden på nytt
+url <- "https://w2.brreg.no/kunngjoring/kombisok.jsp?datoFra=01.01.2019&datoTil=31.12.2019&id_region=0&id_niva1=51&id_niva2=56&id_bransje1=0"
+url2 <- "https://w2.brreg.no/kunngjoring/kombisok.jsp?datoFra=01.01.2020&datoTil=31.12.2020&id_region=0&id_niva1=51&id_niva2=56&id_bransje1=0"
+scraped <- Sys.time()
+```
+
+
+```{r include=FALSE}
+#Scraper ut data fra URL1 og gjør om list til datasett
+konkurs2019 <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//table") %>%
+  html_nodes("table") %>%
+  html_table() %>% .[[1]]
+#
+ konkurs2020 <- url2 %>%
+  read_html() %>%
+  html_nodes(xpath='//table') %>%
+  html_nodes("table") %>% 
+   html_table() %>% .[[1]]
+ 
+ # Lager longdata
+all_konkurs  <- rbind(konkurs2019,konkurs2020)
+
+# Velger kolonner og gir nytt navn til de. 
+#Bruker mutate for å putte inn ny rad "region" og fylle den raden med de gitte fylkene.
+ # Filtrer vekk "Utenlands" og Orgnr med med mindre en 8 siffer (privatpersoner)
+ 
+ all_konkurs <-select(all_konkurs,X2,X4,X6,X8)%>% 
+   rename("Selskap" = X2,"Org.nummer" = X4,"Dato" = X6,"Melding" = X8) %>% 
+   mutate(Fylke=ifelse(grepl("[^Dato][A-Za-z]", Dato), Dato, NA))%>%
+   fill(Fylke) %>% filter(Melding == "Konkursåpning") %>% 
+   filter(Fylke != "Utenlands") %>% filter(nchar(Org.nummer) >8)
+ 
+ #rm(all_konkurs)
+ # Gjør dato variabelen om fra "char" til "Date" 
+ all_konkurs$Dato <- as.Date(all_konkurs$Dato,format="%d.%m.%Y")
+ 
+ # Deler opp dato variabelen til måned og år
+ all_konkurs <- all_konkurs %>% separate(Dato, into = c("Year","Month"), sep = "-")
+ 
+ #Gjør nummerisk
+ all_konkurs$Year <- as.numeric(all_konkurs$Year)
+ all_konkurs$Month <- as.numeric(all_konkurs$Month)
+ 
+ # Lager en count av for antall konkurser for hver måned i hvert fylke.
+ # Filterer vekk slik at jeg kun får max count for hver måned.
+ all_konkurs <- all_konkurs %>% 
+   group_by(Fylke,Month,Year) %>% 
+   mutate(count=row_number()) %>% 
+   filter(count == max(count))
+ 
+ # Sorterer etter fylke,år og måned
+ attach(all_konkurs)
+ 
+ all_konkurs <- all_konkurs[order(Fylke, Year ,Month),]
+ 
+ detach(all_konkurs)
+ 
+ #Gjør om til faktor 
+ all_konkurs$Year <- as.factor(all_konkurs$Year)
+ all_konkurs$Month <- as.factor(all_konkurs$Month)
+ 
+ #Gjør "count" om til kumulative
+ all_konkurs <- all_konkurs %>% group_by(Fylke,Year) %>% mutate(cumulative = cumsum(count))
+ 
+```
+
+
+```{r message=FALSE}
+# Lager plot av de kumulative verdiene
+all_konkurs%>% ggplot(aes(x=Month, y=cumulative, group=Year))+
+          geom_line(aes(color=Year))+
+          facet_wrap(~Fylke)+xlab("Måned")+ylab("Antall på kumulativ form")+ggtitle("Konkurser i Norge")+theme(plot.title = element_text(hjust = 0.5))
+```
+<center>
+ Min observasjon er overaskende lite konkurser i de 9-10 første månedene av **2020** i forhold til **2019** og i tillegg med tanke på covid-19. En teori kan være at bedrifter som egentlig hadde gått konkurs om covid-19 ikke inntraff, fikk redningspakker som gjorde at de overlevde lengere en de normalt ville. Vi kan av grafene se at konkurs-tallene i mange av fylkene er lavere i **2020** enn i **2019**. Bortsett fra at staten muligens har vært litt for gavmilde med redningspakkene, kan det se ut som at de har håndert krisen bra med tanke på at antall konkurser ikke har økt under pandemien sammenlignet mot 2019!  
+
+</center>
