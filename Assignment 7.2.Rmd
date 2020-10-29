@@ -1,0 +1,122 @@
+---
+title: "Assignment 7"
+output: html_document
+author: "Heggelund"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+
+
+```
+
+
+```{r eval=FALSE,message=FALSE,include=FALSE}
+#Har samaerbeidet med Andreas Reiten, Fredrik Sverre og Herman Hauga. Slik at vår kode vil nok være noe lik.
+
+#Henter ut de variablene jeg trenger fra de store datasettene og lager nye csv filer av det
+
+#2017
+births2017 <- read_fwf("Nat2017PublicUS.c20180516.r20180808.txt",
+           fwf_positions(start = c(13,23,475,504),
+                         end = c(14,23,475,507),
+                         col_names = c("BirthMonth","BirthdayWeek", "Sex","Weight")
+           )
+  )
+
+
+write.csv(births2017,"/Users/alfhenrikheggelund/Documents/R/CSV/births2017.csv",row.names = FALSE)
+
+#2018
+births2018 <- read_fwf("Nat2018PublicUS.c20190509.r20190717.txt",
+                       fwf_positions(start = c(13,23,475,504),
+                                     end = c(14,23,475,507),
+                                     col_names = c("BirthMonth","BirthdayWeek", "Sex","Weight")
+                       )
+)
+
+write.csv(births2018,"/Users/alfhenrikheggelund/Documents/R/CSV/births2018.csv", row.names = FALSE)
+
+#2019
+births2019 <- read_fwf("Nat2019PublicUS.c20200506.r20200915.txt",
+                       fwf_positions(start = c(13,23,475,504),
+                                     end = c(14,23,475,507),
+                                     col_names = c("BirthMonth","BirthdayWeek", "Sex","Weight")
+                       )
+)
+
+write.csv(births2019,"/Users/alfhenrikheggelund/Documents/R/CSV/births2019.csv",row.names = FALSE)
+
+```
+
+```{r message=FALSE, echo=FALSE}
+# Leser alle csv filene for 2017,2018,2019
+births2017 <- read_csv("births2017.csv")
+births2018 <- read_csv("births2018.csv")
+births2019 <- read_csv("births2019.csv")
+
+# Legger årstall inn i datasettene
+births2017 <- births2017 %>% mutate(Year=2017)
+births2018 <- births2018 %>% mutate(Year=2018)
+births2019 <- births2019 %>% mutate(Year=2019)
+
+# Lager data long
+df_all <- bind_rows(births2017,births2018,births2019)
+
+#Gjør om weight til numeric
+df_all$Weight <- as.numeric(df_all$Weight)
+
+#Gjør om sex til factor
+df_all$Sex <- as.factor(df_all$Sex)
+
+######### 1.The proportion of boys to girls? 
+
+#Lager graf som viser antall menn og kvinner født hvert år. Lager en count som er sortert etter år og kjønn. Filterer ut max counten for alle.
+df_all %>% 
+  group_by(Year,Sex) %>% 
+  mutate(count=row_number()) %>% 
+  filter(count == max(count))%>%
+  ggplot(aes(x=Sex, y=count, fill=Sex))+
+  geom_bar(colour="black", stat ="identity", alpha=0.9, size=.3)+
+  facet_wrap(~Year) + labs(title="Totale Born Male(M) and Female(F) in US for 2017-2019",x="Sex", y = "Number of Born")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+######### 2.The average birth weight in grams by gender?
+
+#Lager plot av average weight. Filtrer vekk all vekt over 9990 og tar mean.
+df_all %>% group_by(Year,Sex) %>% 
+  filter(Weight < 9990) %>% summarize(mean(Weight)) %>% 
+  rename("Weight1"= `mean(Weight)`) %>% ggplot(aes(x=Sex, y=Weight1, fill=Sex))+
+  geom_bar(stat ="identity",colour="black", size=.3)+
+  facet_wrap(~Year) + labs(title="Average weight in US for newborn Male(M) & Female(F) 2017-2019",x="Sex", y = "Average Weight (grams)")+
+   theme(plot.title = element_text(hjust = 0.5))
+
+######### 3.The proportion of boys to girls by day of birth.
+
+# Lager count
+df_day <- df_all %>% 
+  group_by(Year,Sex,BirthdayWeek) %>% 
+  mutate(count=row_number()) %>% 
+  filter(count == max(count))
+
+# Arrangerer rekkefølge i datasettet
+attach(df_day)
+
+df_day <- df_day[order(Year,BirthdayWeek, Sex),]
+
+detach(df_day)
+
+# Gjør week til factor
+df_day$BirthdayWeek <-as.factor(df_day$BirthdayWeek)
+
+# Lager graf av count
+df_day%>% ggplot(aes(x=BirthdayWeek, y=count, group=Sex))+
+  geom_line(aes(color=Sex))+
+  facet_wrap(~Year)+xlab("Weekday")+ylab("Numer of Born")+ggtitle("Born in the US on each weekday 2017-2019")+theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
